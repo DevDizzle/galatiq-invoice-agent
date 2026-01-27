@@ -1,4 +1,7 @@
 import argparse
+from dotenv import load_dotenv
+load_dotenv()
+
 from langgraph.graph import StateGraph, END
 from state import GlobalState
 import tools
@@ -17,7 +20,8 @@ def build_graph():
     graph.add_edge("ingestion", "validation")
     
     def validation_router(state: GlobalState):
-        if state.validation_errors and "data format" in "".join(state.validation_errors):  # Assume format error check
+        error_text = "".join(state.validation_errors).lower()
+        if state.validation_errors and "data format" in error_text:
             return "ingestion"
         elif state.validation_errors:
             return END
@@ -25,7 +29,10 @@ def build_graph():
     
     graph.add_conditional_edges("validation", validation_router, {"ingestion": "ingestion", "approval": "approval", END: END})
     
-    graph.add_edge("approval", "payment" if state.approval_status == "APPROVED" else END)  # Dynamic, but simplify
+    def approval_router(state: GlobalState):
+        return "payment" if state.approval_status == "APPROVED" else END
+
+    graph.add_conditional_edges("approval", approval_router, {"payment": "payment", END: END})
     graph.add_edge("payment", END)
     
     return graph.compile()
@@ -38,6 +45,13 @@ if __name__ == "__main__":
     tools.setup_db()  # Re-init DB
     state = GlobalState(invoice_file_path=args.invoice_path)
     graph = build_graph()
-    final_state = graph.invoke(state)
-    utils.save_logs(final_state)
-    print(f"Final status: {final_state.payment_status or final_state.approval_status}")
+    print("Starting graph execution...")
+    try:
+        final_state_dict = graph.invoke(state)
+        final_state = GlobalState(**final_state_dict)
+        utils.save_logs(final_state)
+        print(f"Final status: {final_state.payment_status or final_state.approval_status}")
+    except Exception as e:
+        print(f"Graph execution failed: {e}")
+        import traceback
+        traceback.print_exc()

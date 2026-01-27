@@ -4,14 +4,14 @@ import uuid
 from datetime import datetime
 
 class InvoiceItem(BaseModel):
-    item_name: str
-    quantity: int
+    item_name: str = ""
+    quantity: int = 0
 
 class ExtractedData(BaseModel):
-    vendor: str
-    amount: float
-    date: str  # ISO date
-    items: List[InvoiceItem]
+    vendor: str = ""
+    amount: float = 0.0
+    date: str = "" # ISO date
+    items: List[InvoiceItem] = Field(default_factory=list)
 
 class LogEntry(BaseModel):
     agent: str
@@ -29,5 +29,6 @@ class GlobalState(BaseModel):
     approval_reasoning: str = ""
     payment_status: str = ""
     logs: List[LogEntry] = Field(default_factory=list)
+    retry_count: int = 0
     run_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())

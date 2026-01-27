@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from typing import Dict
 
 def setup_db():
     """Initialize SQLite DB with mock inventory."""
@@ -12,6 +13,7 @@ def setup_db():
     c.execute("INSERT INTO inventory VALUES ('GadgetX', 100)")
     c.execute("INSERT INTO inventory VALUES ('WidgetY', 50)")
     c.execute("INSERT INTO inventory VALUES ('ThingZ', 0)")
+    c.execute("INSERT INTO inventory VALUES ('ServiceFee', 999)")
     conn.commit()
     conn.close()
 

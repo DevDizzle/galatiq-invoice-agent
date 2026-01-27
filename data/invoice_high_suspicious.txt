@@ -1,0 +1,8 @@
+INVOICE #999
+Vendor: Unknown LLC
+Date: 2026-01-26 (Due Yesterday)
+
+Items:
+- ServiceFee (1) @ $15000 = $15000
+
+Total: $15000

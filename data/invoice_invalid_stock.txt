@@ -1,0 +1,7 @@
+INVOICE #002
+Vendor: TechSupplies Inc
+
+Items:
+- ThingZ (5) @ $10 = $50
+
+Total: $50

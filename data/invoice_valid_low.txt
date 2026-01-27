@@ -1,0 +1,10 @@
+INVOICE #001
+Vendor: TechSupplies Inc
+Date: 2026-01-20
+Bill To: Galatiq
+
+Items:
+- GadgetX (5) @ $100 = $500
+- WidgetY (10) @ $50 = $500
+
+Total: $1000
