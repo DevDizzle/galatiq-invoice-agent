@@ -1,0 +1,42 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ created ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+    - name: Lint
+      run: pip install flake8 && flake8 .
+    - name: Test
+      run: echo "Add pytest tests here"  # Placeholder; add tests/
+
+  cd:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build Docker image
+      run: docker build -t ghcr.io/${{ github.repository }}:${{ github.ref_name }} .
+    - name: Login to GHCR
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Push to GHCR
+      run: docker push ghcr.io/${{ github.repository }}:${{ github.ref_name }}
