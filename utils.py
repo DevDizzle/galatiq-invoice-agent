@@ -1,14 +1,14 @@
 import fitz  # pymupdf
 import json
-import os
 from typing import List, Dict
 from state import GlobalState, LogEntry
+
 
 def parse_pdf(file_path: str) -> str:
     if file_path.endswith(".txt"):
         with open(file_path, "r") as f:
             return f.read()
-            
+
     doc = fitz.open(file_path)
     text = ""
     for page in doc:
@@ -16,8 +16,12 @@ def parse_pdf(file_path: str) -> str:
     doc.close()
     return text
 
-def log_action(state: GlobalState, agent: str, input_summary: str, tool_calls: List[Dict], decision: str):
-    state.logs.append(LogEntry(agent=agent, input_summary=input_summary, tool_calls=tool_calls, decision=decision))
+
+def log_action(state: GlobalState, agent: str, input_summary: str,
+               tool_calls: List[Dict], decision: str):
+    state.logs.append(LogEntry(agent=agent, input_summary=input_summary,
+                               tool_calls=tool_calls, decision=decision))
+
 
 def save_logs(state: GlobalState):
     log_data = {

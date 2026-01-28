@@ -1,0 +1,79 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  BACKEND_SERVICE: galatiq-backend
+  FRONTEND_SERVICE: galatiq-frontend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker gcr.io
+
+      # --- BACKEND ---
+      - name: Build Backend
+        run: |
+          mv Dockerfile.backend Dockerfile
+          gcloud builds submit --tag gcr.io/$PROJECT_ID/$BACKEND_SERVICE .
+          mv Dockerfile Dockerfile.backend
+
+      - name: Deploy Backend
+        run: |
+          gcloud run deploy $BACKEND_SERVICE \
+            --image gcr.io/$PROJECT_ID/$BACKEND_SERVICE \
+            --platform managed \
+            --region $REGION \
+            --allow-unauthenticated \
+            --set-env-vars XAI_API_KEY=${{ secrets.XAI_API_KEY }} \
+            --max-instances 1
+
+      - name: Get Backend URL
+        id: get-url
+        run: |
+          url=$(gcloud run services describe $BACKEND_SERVICE --platform managed --region $REGION --format 'value(status.url)')
+          echo "BACKEND_URL=$url" >> $GITHUB_ENV
+
+      # --- FRONTEND ---
+      - name: Build Frontend
+        run: |
+          mv Dockerfile.frontend Dockerfile
+          gcloud builds submit --tag gcr.io/$PROJECT_ID/$FRONTEND_SERVICE .
+          mv Dockerfile Dockerfile.frontend
+
+      - name: Deploy Frontend
+        run: |
+          gcloud run deploy $FRONTEND_SERVICE \
+            --image gcr.io/$PROJECT_ID/$FRONTEND_SERVICE \
+            --platform managed \
+            --region $REGION \
+            --allow-unauthenticated \
+            --set-env-vars API_URL=${{ env.BACKEND_URL }} \
+            --max-instances 1
+
+      - name: Show Deployment URLs
+        run: |
+          echo "Backend: ${{ env.BACKEND_URL }}"
+          echo "Frontend: $(gcloud run services describe $FRONTEND_SERVICE --platform managed --region $REGION --format 'value(status.url)')"
