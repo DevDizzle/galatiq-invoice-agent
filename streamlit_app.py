@@ -56,7 +56,7 @@ def process_invoice_direct(file_path: str) -> GlobalState:
 st.title("🤖 Galatiq Invoice Processing Agent")
 st.markdown("""
 **Architecture:** Monolithic Agent (Streamlit + LangGraph)
-1.  **Ingestion:** Grok 4.1 Fast (Reasoning & OCR)
+1.  **Ingestion:** Grok 4.1 Fast Reasoning (Reasoning & OCR)
 2.  **Validation:** Inventory Check (SQLite)
 3.  **Approval:** VP Persona Logic
 """)

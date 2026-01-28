@@ -2,7 +2,7 @@
 
 ## 1. Introduction (1 min)
 *   **The Problem:** Acme Corp losing $2M/yr on manual processing. Slow (5 days), Error-prone (30%).
-*   **The Solution:** An Agentic AI System powered by **xAI Grok-3**.
+*   **The Solution:** An Agentic AI System powered by **xAI Grok 4.1 Fast Reasoning**.
 *   **Key Features:**
     *   **Autonomous:** Ingestion -> Validation -> Approval -> Payment.
     *   **Self-Correcting:** Retries on parse failures.
@@ -11,7 +11,7 @@
 
 ## 2. Technical Architecture (2 min)
 *   **Core Engine:** `LangGraph` for stateful multi-agent orchestration.
-*   **Brain:** `Grok-3` (via xAI API) for reasoning and extraction.
+*   **Brain:** `Grok 4.1 Fast Reasoning` (via xAI API) for reasoning and extraction.
 *   **Tools:**
     *   `PyMuPDF`: PDF Text Extraction.
     *   `SQLite`: Mock Inventory DB (Local).

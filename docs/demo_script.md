@@ -12,7 +12,7 @@ graph LR
     User[User] -->|Uploads PDF| Frontend(Streamlit)
     Frontend -->|POST /process| Backend(FastAPI)
     Backend -->|Orchestrates| Graph(LangGraph)
-    Graph -->|Reasoning| Grok[xAI Grok-3]
+    Graph -->|Reasoning| Grok[xAI Grok 4.1 Fast Reasoning]
     Graph -->|Validation| DB[(Mock Inventory)]
     Graph -->|Payment| PayAPI[Mock Payment]
 ```

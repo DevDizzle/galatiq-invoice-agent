@@ -7,7 +7,7 @@ This document evaluates the current implementation of the Galatiq Invoice Agent 
 ### 1. Core Functionality
 -   **End-to-End Execution:** The system ingests files, validates data, approves/rejects, and processes mock payments.
 -   **Multi-Agent Orchestration:** Utilizes `langgraph` to manage a stateful workflow between `Ingestion`, `Validation`, `Approval`, and `Payment` agents.
--   **Grok Integration:** Uses `xAI Grok-3` (via `langchain-openai` adapter) for reasoning, extraction, and the "VP" critique persona.
+-   **Grok Integration:** Uses `xAI Grok 4.1 Fast Reasoning` (via `langchain-openai` adapter) for reasoning, extraction, and the "VP" critique persona.
 -   **Local Simulation:** No external APIs (besides LLM) are used. Inventory is a local SQLite DB; Payment is a mock function.
 
 ### 2. Agent Logic
