@@ -1,13 +1,21 @@
 import streamlit as st
 import os
 import time
-import requests
 import json
 import pandas as pd
 import sqlite3
+import uuid
+import asyncio
+from dotenv import load_dotenv
 
-# API Configuration
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+# Import core logic directly
+from main import build_graph
+from state import GlobalState
+import tools
+import utils
+
+# Load environment variables
+load_dotenv()
 
 # Set page config
 st.set_page_config(
@@ -17,15 +25,37 @@ st.set_page_config(
 )
 
 # Initialize session state
-if "logs" not in st.session_state:
-    st.session_state.logs = []
+if "run_history" not in st.session_state:
+    st.session_state.run_history = []
+
+def process_invoice_direct(file_path: str) -> GlobalState:
+    """Runs the agent workflow directly in-process."""
+    # Ensure DB is ready
+    tools.setup_db()
+    
+    # Initialize State
+    run_id = str(uuid.uuid4())
+    state = GlobalState(invoice_file_path=file_path, run_id=run_id)
+    
+    # Build Graph
+    graph = build_graph()
+    
+    # Execute
+    # Note: This blocks the UI thread. For a production app we'd use a queue,
+    # but for a demo this guarantees "it just works".
+    final_state_dict = graph.invoke(state)
+    final_state = GlobalState(**final_state_dict)
+    
+    # Save logs
+    utils.save_logs(final_state)
+    return final_state
 
 # --- UI Layout ---
 
 st.title("🤖 Galatiq Invoice Processing Agent")
-st.markdown(f"""
-**Architecture:** Streamlit Frontend ↔ FastAPI Backend (`{API_URL}`)
-1.  **Ingestion:** Grok-3 (Server-side)
+st.markdown("""
+**Architecture:** Monolithic Agent (Streamlit + LangGraph)
+1.  **Ingestion:** Grok-3
 2.  **Validation:** Inventory Check
 3.  **Approval:** VP Logic
 """)
@@ -34,132 +64,86 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("Upload Invoice")
-    uploaded_file = st.file_uploader("Choose an invoice file",
-                                     type=["txt", "pdf"])
-
+    uploaded_file = st.file_uploader("Choose an invoice file", type=["txt", "pdf"])
+    
     if uploaded_file is not None:
         if st.button("Process Invoice", type="primary"):
-            with st.spinner("Uploading to Backend..."):
+            # Save uploaded file to a temporary location
+            upload_dir = "data/uploads"
+            os.makedirs(upload_dir, exist_ok=True)
+            file_path = os.path.join(upload_dir, f"{uuid.uuid4()}_{uploaded_file.name}")
+            
+            with open(file_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            
+            st.success(f"Uploaded: {uploaded_file.name}")
+            
+            with st.spinner("Agents are working... (Ingesting -> Validating -> Approving)"):
                 try:
-                    # 1. Upload
-                    files = {"file": (uploaded_file.name,
-                                      uploaded_file.getvalue(),
-                                      uploaded_file.type)}
-                    resp = requests.post(f"{API_URL}/upload", files=files)
-                    resp.raise_for_status()
-                    data = resp.json()
-                    run_id = data["run_id"]
-                    st.success(f"Uploaded! Session ID: `{run_id}`")
-
-                    # 2. Trigger Process
-                    resp = requests.post(f"{API_URL}/process",
-                                         json={"run_id": run_id})
-                    resp.raise_for_status()
-
-                    # 3. Poll for Completion
-                    status_placeholder = st.empty()
-                    progress_bar = st.progress(0)
-
-                    completed = False
-                    final_state = {}
-
-                    while not completed:
-                        status_resp = requests.get(
-                            f"{API_URL}/status/{run_id}")
-                        status_resp.raise_for_status()
-                        current_state = status_resp.json()
-
-                        outcome = (current_state.get("payment_status") or
-                                   current_state.get("approval_status"))
-                        logs = current_state.get("logs", [])
-
-                        # Update status
-                        last_log = (logs[-1]["agent"] if logs
-                                    else "Initializing...")
-                        status_placeholder.info(f"Agent Action: {last_log}")
-                        progress_bar.progress(min(len(logs) * 25, 100))
-
-                        if outcome not in ["PENDING", ""]:
-                            completed = True
-                            final_state = current_state
-                            progress_bar.progress(100)
-                        else:
-                            time.sleep(2)
-
+                    # Run the agent directly!
+                    final_state = process_invoice_direct(file_path)
+                    st.session_state.run_history.append(final_state)
+                    
                     # --- Result Display ---
-                    outcome = (final_state.get("payment_status") or
-                               final_state.get("approval_status"))
+                    outcome = final_state.payment_status or final_state.approval_status
                     if outcome in ["APPROVED", "success"]:
                         st.balloons()
                         st.success(f"### Final Status: {outcome.upper()}")
                     else:
                         st.error(f"### Final Status: {outcome.upper()}")
-
+                    
                     # Display Details
                     st.divider()
                     st.subheader("Extraction & Validation")
                     c1, c2 = st.columns(2)
                     with c1:
                         st.caption("Extracted Data")
-                        st.json(final_state.get("extracted_data"))
+                        st.json(final_state.extracted_data.model_dump())
                     with c2:
                         st.caption("Validation Errors")
-                        errors = final_state.get("validation_errors")
-                        if errors:
-                            st.error(errors)
+                        if final_state.validation_errors:
+                            st.error(final_state.validation_errors)
                         else:
                             st.success("No validation errors")
 
                     # Approval Details
-                    reasoning = final_state.get("approval_reasoning")
-                    if reasoning:
-                        st.info(f"**VP Reasoning:** {reasoning}")
+                    if final_state.approval_reasoning:
+                        st.info(f"**VP Reasoning:** {final_state.approval_reasoning}")
 
                     # Agent Trace Logs
                     st.subheader("Agent Execution Log")
-                    for step in final_state.get("logs", []):
-                        with st.expander(f"{step['agent']}: "
-                                         f"{step['input_summary']}",
-                                         expanded=True):
-                            st.write(f"**Decision:** {step['decision']}")
-                            if step.get('tool_calls'):
+                    for step in final_state.logs:
+                        with st.expander(f"{step.agent}: {step.input_summary}", expanded=True):
+                            st.write(f"**Decision:** {step.decision}")
+                            if step.tool_calls:
                                 st.write("**Tool Calls:**")
-                                st.json(step['tool_calls'])
-
-                except requests.exceptions.ConnectionError:
-                    st.error("❌ Could not connect to Backend API. "
-                             "Is `server.py` running?")
+                                st.json(step.tool_calls)
+                                
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"Workflow Failed: {e}")
+                    import traceback
+                    st.text(traceback.format_exc())
 
 with col2:
-    st.subheader("Historical Run Logs")
+    st.subheader("Session History")
     if st.button("Refresh Logs"):
-        pass
+        pass # Reruns script
+        
+    if not st.session_state.run_history:
+        st.info("No runs this session.")
+    
+    for state in reversed(st.session_state.run_history):
+        outcome = state.payment_status or state.approval_status
+        color = "green" if outcome in ["APPROVED", "success"] else "red"
+        
+        with st.container(border=True):
+            st.markdown(f":{color}[**{outcome.upper()}**] - {state.timestamp}")
+            st.caption(f"Run ID: {state.run_id}")
+            # Show summarized steps
+            steps = [f"{log.agent}" for log in state.logs]
+            st.code(" -> ".join(steps))
 
-    log_file = "run_logs.json"
-    if os.path.exists(log_file):
-        with open(log_file, "r") as f:
-            lines = f.readlines()
-            # Show last 5 logs, newest first
-            for line in reversed(lines[-5:]):
-                try:
-                    log_entry = json.loads(line)
-                    outcome = log_entry.get("final_outcome", "UNKNOWN")
-                    color = ("green" if outcome in ["APPROVED", "success"]
-                             else "red")
-
-                    with st.container(border=True):
-                        ts = log_entry.get('timestamp')
-                        st.markdown(f":{color}[**{outcome.upper()}**] - {ts}")
-                        st.caption(f"Run ID: {log_entry.get('run_id')}")
-                        st.json(log_entry.get("steps"), expanded=False)
-                except Exception:
-                    pass
-    else:
-        st.write("No logs found yet.")
-
-# Sidebar for Mock DB status (Direct DB read for prototype simplicity)
+# Sidebar for Mock DB status
 with st.sidebar:
     st.header("📦 Inventory Status")
     if os.path.exists("inventory.db"):

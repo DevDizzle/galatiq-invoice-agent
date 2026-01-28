@@ -9,8 +9,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: us-central1
-  BACKEND_SERVICE: galatiq-backend
-  FRONTEND_SERVICE: galatiq-frontend
+  SERVICE_NAME: galatiq-invoice-agent
 
 jobs:
   deploy:
@@ -33,47 +32,19 @@ jobs:
       - name: Configure Docker
         run: gcloud auth configure-docker gcr.io
 
-      # --- BACKEND ---
-      - name: Build Backend
+      - name: Build & Deploy Monolith
         run: |
-          mv Dockerfile.backend Dockerfile
-          gcloud builds submit --tag gcr.io/$PROJECT_ID/$BACKEND_SERVICE .
-          mv Dockerfile Dockerfile.backend
-
-      - name: Deploy Backend
-        run: |
-          gcloud run deploy $BACKEND_SERVICE \
-            --image gcr.io/$PROJECT_ID/$BACKEND_SERVICE \
+          mv Dockerfile.monolith Dockerfile
+          gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME .
+          
+          gcloud run deploy $SERVICE_NAME \
+            --image gcr.io/$PROJECT_ID/$SERVICE_NAME \
             --platform managed \
             --region $REGION \
             --allow-unauthenticated \
             --set-env-vars XAI_API_KEY=${{ secrets.XAI_API_KEY }} \
             --max-instances 1
 
-      - name: Get Backend URL
-        id: get-url
+      - name: Show Service URL
         run: |
-          url=$(gcloud run services describe $BACKEND_SERVICE --platform managed --region $REGION --format 'value(status.url)')
-          echo "BACKEND_URL=$url" >> $GITHUB_ENV
-
-      # --- FRONTEND ---
-      - name: Build Frontend
-        run: |
-          mv Dockerfile.frontend Dockerfile
-          gcloud builds submit --tag gcr.io/$PROJECT_ID/$FRONTEND_SERVICE .
-          mv Dockerfile Dockerfile.frontend
-
-      - name: Deploy Frontend
-        run: |
-          gcloud run deploy $FRONTEND_SERVICE \
-            --image gcr.io/$PROJECT_ID/$FRONTEND_SERVICE \
-            --platform managed \
-            --region $REGION \
-            --allow-unauthenticated \
-            --set-env-vars API_URL=${{ env.BACKEND_URL }} \
-            --max-instances 1
-
-      - name: Show Deployment URLs
-        run: |
-          echo "Backend: ${{ env.BACKEND_URL }}"
-          echo "Frontend: $(gcloud run services describe $FRONTEND_SERVICE --platform managed --region $REGION --format 'value(status.url)')"
+          gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)'
