@@ -12,7 +12,7 @@ import utils
 llm = ChatOpenAI(
     api_key=os.getenv("XAI_API_KEY"),
     base_url="https://api.x.ai/v1",
-    model="grok-3"
+    model="grok-4.1-fast"
 )
 
 
