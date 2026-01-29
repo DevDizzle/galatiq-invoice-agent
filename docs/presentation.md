@@ -18,7 +18,7 @@
     *   `Mock Payment`: Simulation function.
 *   **Deployment (Bonus):**
     *   **CLI:** Standard local execution (Spec compliant).
-    *   **Cloud:** Deployed Client-Server (FastAPI + Streamlit) on Google Cloud Run for stability.
+    *   **Cloud:** Deployed Monolithic Container (Streamlit) on Google Cloud Run for stability.
 
 ## 3. Live Demo (5 min)
 

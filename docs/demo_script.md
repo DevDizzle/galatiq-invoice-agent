@@ -1,17 +1,16 @@
 # Demo Script for Galatiq Invoice Processing Agent
 
 ## 1. System Architecture
-**Pattern:** Client-Server / Agentic Workflow
+**Pattern:** Monolithic Agent (Streamlit + LangGraph)
 **Components:**
-*   **Frontend (Streamlit):** User Interface for uploading invoices and viewing real-time progress.
-*   **Backend (FastAPI):** Hosts the Agentic Logic (LangGraph + Grok-3). Handles state and background processing.
+*   **Frontend (Streamlit):** User Interface for uploading invoices, viewing real-time progress, and hosting the Agentic Logic.
+*   **Engine:** LangGraph + Grok-3 (embedded in Streamlit app).
 *   **Database:** SQLite (Mock Inventory) + In-Memory Session State.
 
 ```mermaid
 graph LR
-    User[User] -->|Uploads PDF| Frontend(Streamlit)
-    Frontend -->|POST /process| Backend(FastAPI)
-    Backend -->|Orchestrates| Graph(LangGraph)
+    User[User] -->|Uploads PDF| App(Streamlit Monolith)
+    App -->|Orchestrates| Graph(LangGraph)
     Graph -->|Reasoning| Grok[xAI Grok 4.1 Fast Reasoning]
     Graph -->|Validation| DB[(Mock Inventory)]
     Graph -->|Payment| PayAPI[Mock Payment]
@@ -19,11 +18,11 @@ graph LR
 
 ## 2. Deployment
 **Google Cloud Run (Production Mode):**
-*   **Frontend:** `https://galatiq-frontend-2lshkth7qq-uc.a.run.app`
-*   **Backend:** `https://galatiq-backend-2lshkth7qq-uc.a.run.app`
+*   **Service:** `https://galatiq-invoice-agent-2lshkth7qq-uc.a.run.app` (Monolithic Container)
 
 **Local Execution (Spec Compliant):**
 *   Run `python3 main.py --invoice_path <file>` for a CLI-only experience.
+*   Run `streamlit run streamlit_app.py` for the UI.
 
 ## 3. Demo Scenarios
 
